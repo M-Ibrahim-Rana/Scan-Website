@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WIT Syedanwalan Scans</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <style>
+        body { margin: 0; }
+        #map { width: 100%; height: 100vh; }
+        .controls {
+            position: absolute;
+            top: 100px;
+            left: 10px;
+            z-index: 1000;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 10px;
+            width: 200px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        select, button, input[type="range"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        select, button {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .bottom-right-image {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            z-index: 1000;
+            width: 100px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <!-- Dropdown for Base Layer -->
+        <div class="control-section">
+            <label for="baseLayerSelect">Map Type</label>
+            <select id="baseLayerSelect">
+                <option value="">Select Map Type</option>
+                <option value="terrain">Terrain</option>
+                <option value="satellite">Satellite</option>
+                <option value="openTopo">Topographical</option>
+
+
+            </select>
+        </div>
+
+        <!-- Dropdown for Image Type -->
+        <div class="control-section">
+            <label for="typeSelect">Vegetation Index</label>
+            <select id="typeSelect">
+                <option value="">Select Vegetation Index</option>
+                <option value="NDVI">NDVI (Raw)</option>
+                <option value="NDWI">NDWI (Raw)</option>
+                <option value="NDRE">NDRE (Raw)</option>
+                <option value="NDVIh">NDVI (Heatmap)</option>
+                <option value="NDREh">NDRE (Heatmap)</option>
+                <option value="NDVIr">NDVI (Regions)</option>
+                <option value="NDREr">NDRE (Regions)</option>
+
+            </select>
+        </div>
+
+        <!-- Dropdown for Dates -->
+        <div class="control-section">
+            <label for="dateSelect">Date</label>
+            <select id="dateSelect" disabled>
+                <option value="">Select Date</option>
+            </select>
+        </div>
+
+        <!-- Toggle Button -->
+        <div class="control-section">
+            <button id="toggleButton" disabled>Toggle Image</button>
+        </div>
+
+    </div>
+
+    <div id="map"></div>
+    <img id="legendImage" src="" alt="Legend" class="bottom-right-image">
+    <script>
+        // Initialize the map
+        var map = L.map('map').setView([31.078798, 74.165724], 16);
+
+        // Base Layers
+        var terrainLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        });
+
+        var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '&copy; Esri'
+        });
+
+
+	var openTopoMapLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: 'OpenTopoMap' });
+
+        var currentOverlay = null;
+
+        // Image Bounds and Current Overlay
+        var imageBounds = [[31.0755304, 74.1623816], [31.0821376, 74.169351]];
+
+        // Data Mapping for Images
+        const imageData = {
+            NDVI: {
+                "December 8 2023": "NDVI/dec8_ndvi.png",
+                "December 16 2023": "NDVI/dec16_ndvi.png",
+                "December 24 2023": "NDVI/dec24_ndvi.png",
+                "January 1 2024": "NDVI/jan1_ndvi.png",
+                "February 2 2024": "NDVI/feb2_ndvi.png",
+                "February 18 2024": "NDVI/feb18_ndvi.png",
+                "March 5 2024": "NDVI/mar5_ndvi.png",
+                "March 13 2024": "NDVI/mar13_ndvi.png",
+                "March 29 2024": "NDVI/mar29_ndvi.png"
+
+
+            },
+            NDWI: {
+                "December 8 2023": "NDWI/dec8_ndwi.png",
+                "December 16 2023": "NDWI/dec16_ndwi.png",
+                "December 24 2023": "NDWI/dec24_ndwi.png",
+                "January 1 2024": "NDWI/jan1_ndwi.png",
+                "February 2 2024": "NDWI/feb2_ndwi.png",
+                "February 18 2024": "NDWI/feb18_ndwi.png",
+                "March 5 2024": "NDWI/mar5_ndwi.png",
+                "March 13 2024": "NDWI/mar13_ndwi.png",
+                "March 29 2024": "NDWI/mar29_ndwi.png"
+            },
+            NDRE: {
+                "December 8 2023": "NDRE/dec8_ndre.png",
+                "December 16 2023": "NDRE/dec16_ndre.png",
+                "December 24 2023": "NDRE/dec24_ndre.png",
+                "January 1 2024": "NDRE/jan1_ndre.png",
+                "February 2 2024": "NDRE/feb2_ndre.png",
+                "February 18 2024": "NDRE/feb18_ndre.png",
+                "March 5 2024": "NDRE/mar5_ndre.png",
+                "March 13 2024": "NDRE/mar13_ndre.png",
+                "March 29 2024": "NDRE/mar29_ndre.png"
+            },
+            NDVIh: {
+                "December 8 2023": "NDVI/dec8_ndvi_h.png",
+                "December 16 2023": "NDVI/dec16_ndvi_h.png",
+                "December 24 2023": "NDVI/dec24_ndvi_h.png",
+                "January 1 2024": "NDVI/jan1_ndvi_h.png",
+                "February 2 2024": "NDVI/feb2_ndvi_h.png",
+                "February 18 2024": "NDVI/feb18_ndvi_h.png",
+                "March 5 2024": "NDVI/mar5_ndvi_h.png",
+                "March 13 2024": "NDVI/mar13_ndvi_h.png",
+                "March 29 2024": "NDVI/mar29_ndvi_h.png"
+
+
+            },
+            NDREh: {
+                "December 8 2023": "NDRE/dec8_ndre_h.png",
+                "December 16 2023": "NDRE/dec16_ndre_h.png",
+                "December 24 2023": "NDRE/dec24_ndre_h.png",
+                "January 1 2024": "NDRE/jan1_ndre_h.png",
+                "February 2 2024": "NDRE/feb2_ndre_h.png",
+                "February 18 2024": "NDRE/feb18_ndre_h.png",
+                "March 5 2024": "NDRE/mar5_ndre_h.png",
+                "March 13 2024": "NDRE/mar13_ndre_h.png",
+                "March 29 2024": "NDRE/mar29_ndre_h.png"
+            },
+            NDVIr: {
+                "December 8 2023": "NDVI_Pix/dec8_ndvi_color_nobg.png",
+                "December 16 2023": "NDVI_Pix/dec16_ndvi_color_nobg.png",
+                "December 24 2023": "NDVI_Pix/dec24_ndvi_color_nobg.png",
+                "January 1 2024": "NDVI_Pix/jan1_ndvi_color_nobg.png",
+                "February 2 2024": "NDVI_Pix/feb2_ndvi_color_nobg.png",
+                "February 18 2024": "NDVI_Pix/feb18_ndvi_color_nobg.png",
+                "March 5 2024": "NDVI_Pix/mar5_ndvi_color_nobg.png",
+                "March 13 2024": "NDVI_Pix/mar13_ndvi_color_nobg.png",
+                "March 29 2024": "NDVI_Pix/mar29_ndvi_color_nobg.png"
+            },
+            NDREr: {
+                "December 8 2023": "NDRE_Pix/dec8_ndre_color_nobg.png",
+                "December 16 2023": "NDRE_Pix/dec16_ndre_color_nobg.png",
+                "December 24 2023": "NDRE_Pix/dec24_ndre_color_nobg.png",
+                "January 1 2024": "NDRE_Pix/jan1_ndre_color_nobg.png",
+                "February 2 2024": "NDRE_Pix/feb2_ndre_color_nobg.png",
+                "February 18 2024": "NDRE_Pix/feb18_ndre_color_nobg.png",
+                "March 5 2024": "NDRE_Pix/mar5_ndre_color_nobg.png",
+                "March 13 2024": "NDRE_Pix/mar13_ndre_color_nobg.png",
+                "March 29 2024": "NDRE_Pix/mar29_ndre_color_nobg.png"
+            },
+
+        };
+        const colorBarData = {
+            NDVI: "Bars/Gray.png",
+            NDWI: "Bars/Gray.png",
+            NDRE: "Bars/Gray.png",
+            NDVIh: "Bars/Color.png",
+            NDREh: "Bars/Color.png",
+            NDVIr: "Bars/Color_Pix.png",
+            NDREr: "Bars/Color_Pix.png"
+
+        };
+        // Helper Function: Add Image Overlay
+        function addImageOverlay(imagePath) {
+            if (currentOverlay) map.removeLayer(currentOverlay);
+            if (imagePath) {
+                currentOverlay = L.imageOverlay(imagePath, imageBounds).addTo(map);
+            }
+        }
+
+        // Dropdown Elements
+        const baseLayerSelect = document.getElementById('baseLayerSelect');
+        const typeSelect = document.getElementById('typeSelect');
+        const dateSelect = document.getElementById('dateSelect');
+        const toggleButton = document.getElementById('toggleButton');
+        const legendImage = document.getElementById('legendImage');
+
+        // Base Layer Switching
+        baseLayerSelect.addEventListener('change', function () {
+            const selectedLayer = baseLayerSelect.value;
+
+            // Remove existing base layers
+            map.eachLayer(function (layer) {
+                if (layer !== currentOverlay) map.removeLayer(layer);
+            });
+
+            // Add the selected base layer
+            if (selectedLayer === 'terrain') terrainLayer.addTo(map);
+            else if (selectedLayer === 'satellite') satelliteLayer.addTo(map);
+            else if (selectedLayer === 'openTopo') openTopoMapLayer.addTo(map);
+
+
+            // Re-add current overlay if present
+            if (currentOverlay) currentOverlay.addTo(map);
+        });
+
+        // Populate Dates Based on Image Type
+        typeSelect.addEventListener('change', function () {
+            const selectedType = typeSelect.value;
+
+            // Reset date dropdown and disable button
+            dateSelect.innerHTML = '<option value="">Select Date</option>';
+            dateSelect.disabled = true;
+            toggleButton.disabled = true;
+
+            if (selectedType && imageData[selectedType]) {
+                dateSelect.disabled = false;
+                for (const date in imageData[selectedType]) {
+                    const option = document.createElement('option');
+                    option.value = imageData[selectedType][date];
+                    option.textContent = date;
+                    dateSelect.appendChild(option);
+                }
+            }
+        });
+
+        // Update Overlay When Date Changes
+        dateSelect.addEventListener('change', function () {
+            const selectedImage = dateSelect.value;
+            const selectedType = typeSelect.value;
+            if (selectedImage) {
+                addImageOverlay(selectedImage);
+                legendImage.src = colorBarData[selectedType];
+                legendImage.style.display = 'block';
+                toggleButton.disabled = false;
+            } else {
+                legendImage.style.display = 'none';
+                toggleButton.disabled = true;
+            }
+        });
+
+
+
+        // Toggle Button Functionality
+        toggleButton.addEventListener('click', function () {
+            if (currentOverlay && map.hasLayer(currentOverlay)) {
+                map.removeLayer(currentOverlay);
+                legendImage.style.display = 'none';
+                map.removeLayer(legend);
+            } else if (currentOverlay) {
+                map.addLayer(currentOverlay);
+                legendImage.style.display = 'block';
+                map.addLayer(legend);
+
+            }
+        });
+    </script>
+</body>
+</html>
